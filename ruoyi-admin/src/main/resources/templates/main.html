@@ -11,14 +11,20 @@
     <link href="../static/css/style.min.css" th:href="@{/css/style.min.css}" rel="stylesheet"/>
 </head>
 
-<body class="gray-bg">
-    <div class="row border-bottom white-bg dashboard-header">
-        <div class="col-sm-12">
-            <blockquote class="text-warning" style="font-size:14px">
-                <h5>请填入分享链接：</h5>
-				<textarea id="share" style="width:500px;height:200px"></textarea>
-				<button onclick="download()">下载</button>
-            </blockquote>
+<body class="white-bg">
+    <div class="white-bg dashboard-header">
+        <div>
+            <div class="text-info center" style="font-size:20px">
+                <h1>请填入分享链接：</h1>
+				<textarea id="share" style="width:600px;height:200px"></textarea>
+                <div style="width:600px;height:20px">
+                    <div class="text-center" style="font-size:20px">
+                        <button onclick="download()">下载</button>
+                        <button onclick="reset()">清空</button>
+                    </div>
+                </div>
+
+            </div>
         </div>
 
     </div>
@@ -26,6 +32,8 @@
     <script th:src="@{/js/jquery.min.js}"></script>
     <script th:src="@{/js/bootstrap.min.js}"></script>
     <script th:src="@{/ajax/libs/layer/layer.min.js}"></script>
+    <script src="../static/ruoyi/js/ry-ui.js" th:src="@{/ruoyi/js/ry-ui.js?v=4.7.9}"></script>
+    <script th:inline="javascript"> var ctx = [[@{/}]]; var captchaType = [[${captchaType}]]; var captchaEnabled = [[${captchaEnabled}]];</script>
     <script type="text/javascript">
 	    $('#pay-qrcode').click(function(){
 	        var html=$(this).html();
@@ -38,23 +46,49 @@
 	            content: html
 	        });
 	    });
-		
-		
+
+        function reset() {
+            $('#share').val("");
+        }
 		function download() {
-			var shareUrl = $('#share').val();
-			$.ajax({
-				type: "post",
-				url: "http://localhost:8080/common/download/pddVideo",
-				data: {
-					"shareUrl": shareUrl,
-					"path": ""
-				},
-				success: r => {
-					if(0 === r.code){
-						console.log("下载成功");
-					}
-				}
-			});
+            let shareUrl = $('#share').val();
+            if(shareUrl === ''){
+                $.modal.msg("分享链接不能为空");
+            }
+            $.ajax({
+                type: "post",
+                url: ctx + "common/download/video",
+                data: {
+                    "shareUrl": $('#share').val()
+                },
+                xhrFields: {
+                    responseType: 'blob'
+                },
+                success: function(data, textStatus, xhr) {
+                    var filename = '';
+                    var disposition = xhr.getResponseHeader('Content-Disposition');
+                    if (disposition && disposition.indexOf('attachment') !== -1) {
+                        var filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+                        var matches = filenameRegex.exec(disposition);
+                        if (matches != null && matches[1]) {
+                            filename = matches[1].replace(/['"]/g, '');
+                        }
+                    }
+                    var blob = new Blob([data], { type: xhr.getResponseHeader('Content-Type') });
+                    var url = window.URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = decodeURIComponent(filename);
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error('下载文件失败', errorThrown);
+                }
+            });
 		}
     </script>
 </body>

@@ -319,7 +319,7 @@ public class FileUtils
     }
 
     public static void downloadFiles(String shareUrl, String path) {
-        String nativePrefix = "C:\\Users\\96430\\Desktop\\pdd\\";
+        String nativePrefix = "/home/ruoyi/ppdVideo";
         path = StringUtils.isEmpty(path) ? nativePrefix : path;
         try {
             JSONObject jsonObject = VideoUrlExtractor.extractor(shareUrl);

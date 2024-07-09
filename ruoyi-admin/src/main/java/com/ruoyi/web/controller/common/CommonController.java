@@ -1,26 +1,38 @@
 package com.ruoyi.web.controller.common;
 
-import java.util.ArrayList;
-import java.util.List;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import com.ruoyi.common.config.RuoYiConfig;
+import com.ruoyi.common.config.ServerConfig;
+import com.ruoyi.common.constant.Constants;
+import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.common.utils.VideoUrlExtractor;
+import com.ruoyi.common.utils.file.FileUploadUtils;
+import com.ruoyi.common.utils.file.FileUtils;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
-import com.ruoyi.common.config.RuoYiConfig;
-import com.ruoyi.common.config.ServerConfig;
-import com.ruoyi.common.constant.Constants;
-import com.ruoyi.common.core.domain.AjaxResult;
-import com.ruoyi.common.utils.StringUtils;
-import com.ruoyi.common.utils.file.FileUploadUtils;
-import com.ruoyi.common.utils.file.FileUtils;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 通用请求处理
@@ -181,20 +193,38 @@ public class CommonController
         }
     }
 
-    @PostMapping("/download/pddVideo")
-    @ResponseBody
-    public AjaxResult pddVideoDownload(String shareUrl,String path)
-            throws Exception
-    {
-        try
-        {
-            FileUtils.downloadFiles(shareUrl,path);
-            return AjaxResult.success();
-        }
-        catch (Exception e)
-        {
+    @PostMapping("/download/video")
+    public ResponseEntity<?> videoDownload(String shareUrl) {
+        try {
+            JSONObject jsonObject = VideoUrlExtractor.extractor(shareUrl);
+            String url = jsonObject.getString("linkUrl");
+            String title = jsonObject.getString("title");
+            int feedsPosition = jsonObject.getInt("feedsPosition");
+            String fileName = RuoYiConfig.getProfile() + "/" + title + " 第" + feedsPosition + "级.mp4";
+            File file = new File(fileName);
+
+            // 下载文件到服务器
+            org.apache.commons.io.FileUtils.copyURLToFile(new URL(url), file);
+
+            if (!file.exists()) {
+                return ResponseEntity.status(404).body("文件不存在");
+            }
+            // 将文件传递给客户端
+            FileInputStream fileInputStream = new FileInputStream(file);
+            InputStreamResource resource = new InputStreamResource(fileInputStream);
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=" + URLEncoder.encode(file.getName(), StandardCharsets.UTF_8.toString()))
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .contentLength(file.length())
+                    .body(resource);
+        } catch (IOException e) {
             log.error("下载文件失败", e);
-            return AjaxResult.error();
+            return ResponseEntity.status(500).body("下载文件失败");
+        } catch (Exception e) {
+            log.error("处理失败", e);
+            return ResponseEntity.status(500).body("处理失败");
         }
     }
+
 }
